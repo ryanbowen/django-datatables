@@ -10,11 +10,8 @@ from django.utils.cache import add_never_cache_headers
 from django.utils.html import strip_tags
 
 try:
-    try:
-        from openpyxl import Workbook
-        import openpyxl.writer.excel as ExcelWriter
-    except ImportError:
-        from .excel import ExcelWriter
+    from openpyxl import Workbook
+    import openpyxl.writer.excel as ExcelWriter
 except ImportError:
     ExcelWriter = None
 
