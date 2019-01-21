@@ -2,14 +2,19 @@ from datetime import datetime
 import logging
 
 from django.core.serializers.json import DjangoJSONEncoder
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils.encoding import force_text
 from django.utils.functional import Promise
 from django.utils.translation import ugettext as _
 from django.utils.cache import add_never_cache_headers
+from django.utils.html import strip_tags
 
 try:
-    from .excel import ExcelWriter
+    try:
+        from openpyxl import Workbook
+        import openpyxl.writer.excel as ExcelWriter
+    except ImportError:
+        from .excel import ExcelWriter
 except ImportError:
     ExcelWriter = None
 
@@ -36,12 +41,21 @@ class DataResponse(object):
         rows = self.get_data(request)
         title = getattr(self._meta, "title", "Sheet")
 
-        xlwriter = ExcelWriter()
-        xlwriter.add_headers(title, headers)
-        for row in rows:
-            xlwriter.add_row(title, dict(zip(headers, row)))
+        wb = Workbook(write_only=True)
+        ws = wb.create_sheet(title)
 
-        return xlwriter.download(f'{title}-{datetime.now().strftime("%Y-%m-%d %H%m")}.xlsx')
+        ws.append(headers)
+        for row in rows:
+            ws.append([strip_tags(c) for c in row])
+
+        response = HttpResponse(
+            ExcelWriter.save_virtual_workbook(wb),
+            content_type='application/vnd.ms-excel'
+        )
+        response['Content-Disposition'] = \
+            'attachment; filename="{0}"'.format(f'{title}-{datetime.now().strftime("%Y-%m-%d %H%m")}.xlsx')
+
+        return response
 
     def create_data_response(self, func_val, request):
         try:
